@@ -115,13 +115,8 @@ function execGit(cwd: string, env: NodeJS.ProcessEnv, args: string[]) {
 const undoDir = join(getAgentDir(), "undo");
 
 // Runs git against a private repo, leaving the project's own git state
-// untouched. Refuses if cwd and the agent dir overlap, as restoring would
-// rewrite pi's own state.
-async function git(cwd: string, ...args: string[]) {
-  // Resolves symlinks, as the agent dir is often linked from a dotfiles repo.
-  if (overlaps(await realpath(cwd), await realpath(getAgentDir()))) {
-    throw new Error(`${cwd} overlaps the agent dir`);
-  }
+// untouched.
+function git(cwd: string, ...args: string[]) {
   const GIT_DIR = join(undoDir, encodeCwd(cwd));
   // A per-process index, so concurrent sessions don't collide on its lock.
   const GIT_INDEX_FILE = join(tmpdir(), `pi-undo-${process.pid}`);
@@ -149,8 +144,15 @@ async function addAll(cwd: string) {
   }
 }
 
-// Writes the work tree to the private repo, returning its tree hash.
+// Writes the work tree to the private repo, returning its tree hash. Refuses
+// if cwd and the agent dir overlap, as snapshotting would add the undo repo to
+// itself and restoring would rewrite pi's own state. Every restore follows a
+// snapshot, so this guards those too.
 async function writeTree(cwd: string) {
+  // Resolves symlinks, as the agent dir is often linked from a dotfiles repo.
+  if (overlaps(await realpath(cwd), await realpath(getAgentDir()))) {
+    throw new Error(`${cwd} overlaps the agent dir`);
+  }
   await mkdir(undoDir, { recursive: true });
   await git(cwd, "init", "--quiet");
   await addAll(cwd);
