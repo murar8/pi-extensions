@@ -23,13 +23,13 @@ export interface StashPi {
 }
 
 function stash(pi: StashPi) {
-  let stash = "";
+  let stashed = "";
   pi.registerShortcut("alt+s", {
     description: "Swap the prompt with the stash",
     handler: ({ ui }) => {
       const text = ui.getEditorText();
-      ui.setEditorText(stash);
-      stash = text;
+      ui.setEditorText(stashed);
+      stashed = text;
     },
   });
 }
