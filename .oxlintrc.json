@@ -1,0 +1,89 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "categories": {
+    "correctness": "error"
+  },
+  "env": {
+    "node": true
+  },
+  "extends": [
+    "node_modules/oxlint-config-presets/@eslint/recommended.json",
+    "node_modules/oxlint-config-presets/@typescript-eslint/strict-type-checked.json",
+    "node_modules/oxlint-config-presets/@typescript-eslint/stylistic-type-checked.json",
+    "node_modules/oxlint-config-presets/promise/recommended.json",
+    "node_modules/oxlint-config-presets/n/recommended-module.json",
+    "node_modules/oxlint-config-presets/import/recommended.json",
+    "node_modules/oxlint-config-presets/import/typescript.json",
+    "node_modules/oxlint-config-presets/jsdoc/recommended-typescript-error.json"
+  ],
+  "options": {
+    "denyWarnings": true,
+    "reportUnusedDisableDirectives": "error",
+    "typeAware": true,
+    "typeCheck": true
+  },
+  "plugins": [
+    "eslint",
+    "typescript",
+    "unicorn",
+    "oxc",
+    "import",
+    "promise",
+    "node"
+  ],
+  "rules": {
+    "func-style": ["error", "declaration"],
+    "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
+    "import/no-cycle": "error",
+    "import/no-relative-parent-imports": "error",
+    "import/no-self-import": "error",
+    "no-extra-bind": "error",
+    "no-extra-label": "error",
+    "no-multi-assign": "error",
+    "no-return-assign": ["error", "always"],
+    "no-self-compare": "error",
+    "no-unneeded-ternary": "error",
+    "no-unreachable-loop": "error",
+    "no-use-before-define": [
+      "error",
+      {
+        "ignoreTypeReferences": false
+      }
+    ],
+    "no-useless-call": "error",
+    "no-useless-computed-key": "error",
+    "no-useless-concat": "error",
+    "no-useless-return": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "prefer-rest-params": "error",
+    "prefer-spread": "error",
+    "typescript/consistent-type-exports": "error",
+    "typescript/consistent-type-imports": "error",
+    "typescript/no-unnecessary-qualifier": "error",
+    "typescript/no-unsafe-enum-assignment": "error",
+    "typescript/no-unsafe-type-assertion": "error",
+    "typescript/restrict-template-expressions": [
+      "error",
+      {
+        "allowAny": false,
+        "allowNullish": false
+      }
+    ],
+    "unicorn/filename-case": "error",
+    "unicorn/no-unnecessary-array-flat-depth": "error",
+    "unicorn/no-unnecessary-array-splice-count": "error",
+    "unicorn/no-unnecessary-slice-end": "error",
+    "unicorn/no-useless-collection-argument": "error",
+    "unicorn/no-useless-error-capture-stack-trace": "error",
+    "unicorn/no-useless-iterator-to-array": "error",
+    "unicorn/no-useless-promise-resolve-reject": "error",
+    "unicorn/no-useless-switch-case": "error",
+    "unicorn/no-useless-undefined": [
+      "error",
+      {
+        "checkArguments": false
+      }
+    ]
+  }
+}

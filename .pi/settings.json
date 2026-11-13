@@ -1,0 +1,10 @@
+{
+  "packages": [
+    "..",
+    {
+      "source": "git:github.com/murar8/pi-extensions",
+      "autoload": false,
+      "extensions": ["!**"]
+    }
+  ]
+}

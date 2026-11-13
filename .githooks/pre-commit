@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+npm run lint:oxlint:check
+npm run lint:rumdl:check
+npm run lint:shellcheck:check
+npm run format:prettier:check
+npm run format:shfmt:check
+npm run test:coverage
+npm run test:e2e

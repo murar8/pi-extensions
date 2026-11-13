@@ -1,0 +1,60 @@
+{
+  "name": "pi-extensions",
+  "version": "0.1.0",
+  "type": "module",
+  "repository": "github:murar8/pi-extensions",
+  "keywords": [
+    "pi-package"
+  ],
+  "files": [
+    "extensions",
+    "!extensions/**/*.test.ts"
+  ],
+  "pi": {
+    "extensions": [
+      "extensions/*.ts",
+      "!extensions/*.test.ts"
+    ]
+  },
+  "scripts": {
+    "prepare": "git config core.hooksPath .githooks",
+    "format:prettier:check": "prettier --check .",
+    "format:prettier:fix": "prettier --write .",
+    "format:shfmt:check": "git ls-files -z | xargs -0 shfmt -f | xargs shfmt -d",
+    "format:shfmt:fix": "git ls-files -z | xargs -0 shfmt -f | xargs shfmt -w",
+    "lint:oxlint:check": "oxlint",
+    "lint:oxlint:fix": "oxlint --fix",
+    "lint:rumdl:check": "rumdl check .",
+    "lint:rumdl:fix": "rumdl check --fix .",
+    "lint:shellcheck:check": "git ls-files -z | xargs -0 shfmt -f | xargs shellcheck",
+    "test:coverage": "JITI_SOURCE_MAPS=1 npm run test:unit -- --experimental-config-file=node.coverage.json",
+    "test:e2e": "node --import jiti/register --test 'e2e/*.e2e.ts'",
+    "test:unit": "node --import jiti/register --test"
+  },
+  "peerDependencies": {
+    "@earendil-works/pi-ai": "*",
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "^1.5.0",
+    "@earendil-works/pi-coding-agent": "^1.5.0",
+    "@earendil-works/pi-tui": "^1.5.0",
+    "@microsoft/tui-test": "^0.1.1",
+    "@types/node": "^26.6.6",
+    "jiti": "^2.7.0",
+    "oxlint": "^1.93.0",
+    "oxlint-config-presets": "^0.1.21",
+    "oxlint-tsgolint": "^7.0.2007",
+    "prettier": "^3.10.1",
+    "rumdl": "^0.3.4",
+    "typebox": "1.3.27",
+    "typescript": "^7.0.2"
+  },
+  "allowScripts": {
+    "@google/genai": false,
+    "koffi": false,
+    "protobufjs": false
+  }
+}
