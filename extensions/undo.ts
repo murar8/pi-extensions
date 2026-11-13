@@ -201,12 +201,13 @@ function undo(pi: ExtensionAPI) {
     const tree = findSnapshot(ctx, preparation.targetId)?.data?.tree;
     if (!tree || tree === current) return;
     const choice = await ctx.ui.select("Restore files?", ["Restore", "Keep"]);
-    if (choice !== "Restore") return { cancel: choice === undefined };
+    if (choice === undefined) return { cancel: true };
+    if (choice !== "Restore") return;
     try {
       // Checks the tree exists, while navigation can still be cancelled.
       await git(ctx.cwd, "ls-tree", tree);
       pending = tree;
-      return { cancel: false };
+      return;
     } catch (error) {
       warn(ctx, "restore failed", error);
       return { cancel: true };
