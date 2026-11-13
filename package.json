@@ -8,12 +8,17 @@
   ],
   "files": [
     "extensions",
-    "!extensions/**/*.test.ts"
+    "!extensions/**/*.test.ts",
+    "!extensions/**/*.e2e.ts"
   ],
+  "imports": {
+    "#e2e/*": "./e2e/*"
+  },
   "pi": {
     "extensions": [
       "extensions/*.ts",
-      "!extensions/*.test.ts"
+      "!extensions/*.test.ts",
+      "!extensions/*.e2e.ts"
     ]
   },
   "scripts": {
@@ -28,7 +33,7 @@
     "lint:rumdl:fix": "rumdl check --fix .",
     "lint:shellcheck:check": "shellcheck .githooks/*",
     "test:coverage": "npm run test:unit -- --experimental-config-file=node.coverage.json",
-    "test:e2e": "node --test 'e2e/*.e2e.ts'",
+    "test:e2e": "node --test 'extensions/**/*.e2e.ts'",
     "test:unit": "node --test"
   },
   "peerDependencies": {
