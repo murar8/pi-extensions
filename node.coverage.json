@@ -2,7 +2,7 @@
   "test": {
     "experimental-test-coverage": true,
     "test-coverage-include": ["extensions/**"],
-    "test-coverage-exclude": ["**/*.test.ts", "**/index.ts"],
+    "test-coverage-exclude": ["**/*.test.ts"],
     "test-coverage-lines": 100,
     "test-coverage-functions": 100,
     "test-coverage-branches": 100
