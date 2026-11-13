@@ -1,6 +1,83 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+function check_no_intent_to_add() {
+	local ita
+	ita=$(git diff-files --diff-filter=A --name-only)
+	if [[ -n $ita ]]; then
+		printf 'Cannot stash intent-to-add files, stage or remove them:\n%s\n' "$ita" >&2
+		exit 1
+	fi
+}
+
+# Stashing would turn the merge autostash into a stash entry on top of ours.
+function check_no_merge_autostash() {
+	if [[ -e $git_dir/MERGE_AUTOSTASH ]]; then
+		echo 'Cannot stash during a merge with --autostash, commit with --no-verify' >&2
+		exit 1
+	fi
+}
+
+function save_merge_state() {
+	mkdir "$tmp/merge"
+	for file in MERGE_HEAD MERGE_MODE MERGE_MSG MERGE_RR SQUASH_MSG; do
+		if [[ -e $git_dir/$file ]]; then
+			cp "$git_dir/$file" "$tmp/merge"
+		fi
+	done
+}
+
+function stash_ref() {
+	git rev-parse -q --verify refs/stash || true
+}
+
+# Unstaged changes to tracked files, then the untracked files in the stash.
+function unstaged_patch() {
+	cat "$tmp/unstaged.patch"
+	git diff-tree -p --binary --root refs/stash^3
+}
+
+# On failure nothing is applied and the stash is kept.
+function apply_unstaged() {
+	unstaged_patch | git apply --allow-empty --whitespace=nowarn && git stash drop -q
+}
+
+function restore_merge_state() {
+	cp -r "$tmp/merge/." "$git_dir"
+}
+
+function restore_unstaged() {
+	local status=$?
+	restore_merge_state
+	if [[ $(stash_ref) != "$old_stash" ]] && ! apply_unstaged; then
+		echo 'Could not restore unstaged changes, they are kept in the stash' >&2
+		status=1
+	fi
+	rm -r "$tmp"
+	exit "$status"
+}
+
+function stash_unstaged() {
+	# Taken before stashing, as the stash keeps staged files deleted since.
+	git diff-files -p --binary >"$tmp/unstaged.patch"
+	old_stash=$(stash_ref)
+	trap restore_unstaged EXIT
+	git stash push -q --keep-index --include-untracked
+}
+
+# Check only what is staged: stash the rest, re-apply it on exit. Stashing
+# clears an ongoing merge, so save its state and put it back too. Stashing
+# needs a commit, so the first one checks the working tree.
+if git rev-parse -q --verify HEAD >/dev/null; then
+	check_no_intent_to_add
+	git_dir=$(git rev-parse --git-dir)
+	check_no_merge_autostash
+	tmp=$(mktemp -d)
+	trap 'rm -r "$tmp"' EXIT
+	save_merge_state
+	stash_unstaged
+fi
+
 npm run lint:oxlint:check
 npm run lint:rumdl:check
 npm run lint:shellcheck:check
