@@ -175,8 +175,11 @@ function undo(pi: ExtensionAPI) {
     try {
       if (disabled) return;
       const tree = await writeTree(ctx.cwd);
-      const at = lastMessageId(ctx.sessionManager.getBranch());
-      pi.appendEntry("undo", { tree, at });
+      const branch = ctx.sessionManager.getBranch();
+      const last = branch.at(-1);
+      // Skips repeating the leaf, as before_agent_start does after turn_end.
+      if (last && isSnapshot(last) && last.data?.tree === tree) return tree;
+      pi.appendEntry("undo", { tree, at: lastMessageId(branch) });
       return tree;
     } catch (error) {
       disabled = true;
