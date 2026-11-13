@@ -126,8 +126,8 @@ function indexFile(cwd: string) {
 // Runs git against a private repo, leaving the project's own git state
 // untouched.
 function git(cwd: string, ...args: string[]) {
-  // Passes only PATH, and hides system config and the project's attributes, so
-  // files are stored byte for byte.
+  // Passes only PATH, and hides global and system config and the project's
+  // attributes, so files are stored byte for byte.
   const env = {
     PATH: process.env["PATH"],
     GIT_DIR: gitDir(cwd),
