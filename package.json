@@ -2,6 +2,7 @@
   "name": "pi-extensions",
   "version": "0.1.0",
   "type": "module",
+  "license": "MIT",
   "repository": "github:murar8/pi-extensions",
   "keywords": [
     "pi-package"
