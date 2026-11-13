@@ -13,7 +13,7 @@
 // - A killed process leaves its index behind.
 
 import { execFile } from "node:child_process";
-import { mkdir, realpath, rm } from "node:fs/promises";
+import { access, mkdir, realpath, rm } from "node:fs/promises";
 import { join, sep } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type {
@@ -140,6 +140,16 @@ function git(cwd: string, ...args: string[]) {
   return execGit(cwd, env, args);
 }
 
+// Creates the private repo if missing. Re-running init would rewrite the
+// config, racing other processes on its lock.
+async function init(cwd: string) {
+  try {
+    await access(join(gitDir(cwd), "HEAD"));
+  } catch {
+    await git(cwd, "init", "--quiet");
+  }
+}
+
 // Stages the work tree, skipping files git can't add, like nested repos
 // without commits. Git exits 1 if it skipped any.
 async function addAll(cwd: string) {
@@ -160,7 +170,7 @@ async function writeTree(cwd: string) {
     throw new Error(`${cwd} overlaps the agent dir`);
   }
   await mkdir(undoDir, { recursive: true });
-  await git(cwd, "init", "--quiet");
+  await init(cwd);
   await addAll(cwd);
   return git(cwd, "write-tree");
 }
