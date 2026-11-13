@@ -9,11 +9,11 @@
 // - Keeps only the executable bit.
 // - A restore failing after navigation only warns.
 // - Never prunes the undo repo.
-// - Each process's first snapshot rehashes every file.
+// - Each session's first snapshot rehashes every file.
+// - A killed process leaves its index behind.
 
 import { execFile } from "node:child_process";
-import { mkdir, realpath } from "node:fs/promises";
-import { tmpdir } from "node:os";
+import { mkdir, realpath, rm } from "node:fs/promises";
 import { join, sep } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import type {
@@ -114,19 +114,25 @@ function execGit(cwd: string, env: NodeJS.ProcessEnv, args: string[]) {
 
 const undoDir = join(getAgentDir(), "undo");
 
+function gitDir(cwd: string) {
+  return join(undoDir, encodeCwd(cwd));
+}
+
+// A per-process index, so concurrent sessions don't collide on its lock.
+function indexFile(cwd: string) {
+  return join(gitDir(cwd), `index-${process.pid}`);
+}
+
 // Runs git against a private repo, leaving the project's own git state
 // untouched.
 function git(cwd: string, ...args: string[]) {
-  const GIT_DIR = join(undoDir, encodeCwd(cwd));
-  // A per-process index, so concurrent sessions don't collide on its lock.
-  const GIT_INDEX_FILE = join(tmpdir(), `pi-undo-${process.pid}`);
   // Passes only PATH, and hides system config and the project's attributes, so
   // files are stored byte for byte.
   const env = {
     PATH: process.env["PATH"],
-    GIT_DIR,
+    GIT_DIR: gitDir(cwd),
     GIT_WORK_TREE: cwd,
-    GIT_INDEX_FILE,
+    GIT_INDEX_FILE: indexFile(cwd),
     GIT_CONFIG_NOSYSTEM: "1",
     // Git's built-in empty tree, which needs no object in the repo.
     GIT_ATTR_SOURCE: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
@@ -225,6 +231,10 @@ function undo(pi: ExtensionAPI) {
         warn(ctx, "restore failed", error);
       });
     }
+  });
+
+  pi.on("session_shutdown", async (_event, ctx) => {
+    await rm(indexFile(ctx.cwd), { force: true });
   });
 }
 
