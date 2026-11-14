@@ -10,7 +10,8 @@
   "files": [
     "extensions",
     "!extensions/**/*.test.ts",
-    "!extensions/**/*.e2e.ts"
+    "!extensions/**/*.e2e.ts",
+    "!extensions/**/*.fixture.ts"
   ],
   "imports": {
     "#e2e/*": "./e2e/*"

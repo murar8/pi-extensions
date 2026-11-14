@@ -70,6 +70,7 @@
       }
     ],
     "unicorn/filename-case": "error",
+    "unicorn/no-await-expression-member": "error",
     "unicorn/no-unnecessary-array-flat-depth": "error",
     "unicorn/no-unnecessary-array-splice-count": "error",
     "unicorn/no-unnecessary-slice-end": "error",

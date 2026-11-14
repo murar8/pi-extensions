@@ -1,4 +1,4 @@
-// Snapshots files after each turn; /tree offers to restore them.
+// Snapshots the files in cwd after each turn; /tree offers to restore them.
 //
 // Accepted limitations:
 // - Needs git >= 2.41.
@@ -7,16 +7,19 @@
 // - Only the .gitignore files in cwd apply.
 // - Restoring a point with other ignore rules deletes the files it ignored.
 // - Keeps only the executable bit.
+// - Ignores empty directories.
 // - A restore failing after navigation only warns.
 // - A restore that can't delete a file leaves it, silently.
 // - Never prunes the undo repo.
 // - Each session's first snapshot rehashes every file.
 // - A killed process leaves its index behind.
+// - Diffs over 1MB or 5s fail to show.
 
-import { execFile } from "node:child_process";
+import { execFile, spawnSync } from "node:child_process";
 import { access, mkdir, realpath, rm } from "node:fs/promises";
 import { join, sep } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
+import { Spacer, truncateToWidth } from "@earendil-works/pi-tui";
 import type {
   CustomEntry,
   ExtensionAPI,
@@ -92,10 +95,10 @@ class GitError extends Error {
   }
 }
 
-const undoDir = join(getAgentDir(), "undo");
+const UNDO_DIR = join(getAgentDir(), "undo");
 
 function gitDir(cwd: string) {
-  return join(undoDir, encodeCwd(cwd));
+  return join(UNDO_DIR, encodeCwd(cwd));
 }
 
 // A per-process index, so concurrent sessions don't collide on its lock.
@@ -105,8 +108,9 @@ function indexFile(cwd: string) {
 
 // Runs git against a private repo, leaving the project's own git state
 // untouched. Rejects with a short message on failure or timeout.
-function git(cwd: string, ...args: string[]) {
-  const command = `git ${args.join(" ")}`;
+function git(cwd: string, subcommand: string, ...args: string[]) {
+  // Leaves out the args, as hashes would flood the message.
+  const command = `git ${subcommand}`;
   // Passes only PATH, and hides global and system config and the project's
   // attributes, so files are stored byte for byte.
   const env = {
@@ -120,7 +124,7 @@ function git(cwd: string, ...args: string[]) {
   };
   return new Promise<string>((resolve, reject) => {
     const options = { cwd, env, timeout: 5000 };
-    execFile("git", args, options, (error, stdout, stderr) => {
+    execFile("git", [subcommand, ...args], options, (error, stdout, stderr) => {
       if (!error) {
         resolve(stdout.trim());
       } else if (error.killed) {
@@ -164,10 +168,48 @@ async function writeTree(cwd: string) {
   if (overlaps(await realpath(cwd), await realpath(getAgentDir()))) {
     throw new Error(`${cwd} overlaps the agent dir`);
   }
-  await mkdir(undoDir, { recursive: true });
+  await mkdir(UNDO_DIR, { recursive: true });
   await init(cwd);
   await addAll(cwd);
   return git(cwd, "write-tree");
+}
+
+// The dialog title's horizontal padding.
+const PADDING_COLUMNS = 2;
+
+// The one-line diffstat between two trees, cut to the terminal. Full off a
+// TTY, like in RPC mode, where the client renders it.
+async function diffStat(cwd: string, from: string, to: string) {
+  const stat = await git(cwd, "diff", "--shortstat", from, to);
+  if (!process.stdout.columns) return stat;
+  return truncateToWidth(stat, process.stdout.columns - PADDING_COLUMNS);
+}
+
+// Shows the diff between two trees in less, suspending the TUI.
+async function showDiff(
+  { cwd, ui }: ExtensionContext,
+  from: string,
+  to: string,
+) {
+  const input = await git(cwd, "diff", "--color=always", from, to);
+  await ui.custom<null>((tui, _theme, _keybindings, done) => {
+    // Hands the screen to less as is, as fullscreen mode would otherwise print
+    // itself to the scrollback.
+    tui.stop({ preserveScreen: true });
+    // Keeps Ctrl+C a key, as a SIGINT would also reach and kill pi.
+    process.stdin.setRawMode(true);
+    // Overrides the user's -E and -F, which quit at once on a short diff, and
+    // -X, which leaves it in the scrollback.
+    const { error } = spawnSync("less", ["-R", "-+E", "-+F", "-+X"], {
+      input,
+      stdio: ["pipe", "inherit", "inherit"],
+    });
+    tui.start();
+    tui.requestRender(true);
+    if (error) throw error;
+    done(null);
+    return new Spacer(0);
+  });
 }
 
 function undo(pi: ExtensionAPI) {
@@ -214,17 +256,34 @@ function undo(pi: ExtensionAPI) {
     if (!current) return { cancel: true };
     const tree = findSnapshot(ctx, preparation.targetId)?.data?.tree;
     if (!tree || tree === current) return;
-    const choice = await ctx.ui.select("Restore files?", ["Restore", "Keep"]);
-    if (choice === undefined) return { cancel: true };
-    if (choice !== "Restore") return;
+    let stat;
     try {
-      // Checks the tree exists, while navigation can still be cancelled.
-      await git(ctx.cwd, "ls-tree", tree);
-      pending = tree;
-      return;
+      stat = await diffStat(ctx.cwd, current, tree);
     } catch (error) {
-      warn(ctx, "restore failed", error);
+      warn(ctx, "diff failed", error);
       return { cancel: true };
+    }
+    const title = `Restore files?\n\n${stat}`;
+    const options = ["Restore", "Keep"];
+    // custom() needs a terminal. First, so Enter on the reopened dialog shows
+    // the diff again instead of restoring.
+    if (ctx.mode === "tui") options.unshift("Diff");
+    for (;;) {
+      const choice = await ctx.ui.select(title, options);
+      if (choice === undefined) {
+        return { cancel: true };
+      } else if (choice === "Restore") {
+        pending = tree;
+        return;
+      } else if (choice === "Keep") {
+        return;
+      } else {
+        try {
+          await showDiff(ctx, current, tree);
+        } catch (error) {
+          warn(ctx, "diff failed", error);
+        }
+      }
     }
   });
 
