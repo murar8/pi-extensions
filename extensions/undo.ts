@@ -61,9 +61,8 @@ function opensInEditor(entry: SessionEntry | undefined) {
 
 // Finds the latest snapshot at message `at`.
 function findSnapshotAt(entries: SessionEntry[], at: string | undefined) {
-  return entries
-    .filter(isSnapshot)
-    .findLast(({ data }) => at && data?.at === at);
+  if (!at) return;
+  return entries.filter(isSnapshot).findLast(({ data }) => data?.at === at);
 }
 
 // Finds the latest snapshot at the /tree target, falling back to the last one
@@ -93,9 +92,32 @@ class GitError extends Error {
   }
 }
 
-// Runs git, rejecting with a short message on failure or timeout.
-function execGit(cwd: string, env: NodeJS.ProcessEnv, args: string[]) {
+const undoDir = join(getAgentDir(), "undo");
+
+function gitDir(cwd: string) {
+  return join(undoDir, encodeCwd(cwd));
+}
+
+// A per-process index, so concurrent sessions don't collide on its lock.
+function indexFile(cwd: string) {
+  return join(gitDir(cwd), `index-${process.pid}`);
+}
+
+// Runs git against a private repo, leaving the project's own git state
+// untouched. Rejects with a short message on failure or timeout.
+function git(cwd: string, ...args: string[]) {
   const command = `git ${args.join(" ")}`;
+  // Passes only PATH, and hides global and system config and the project's
+  // attributes, so files are stored byte for byte.
+  const env = {
+    PATH: process.env["PATH"],
+    GIT_DIR: gitDir(cwd),
+    GIT_WORK_TREE: cwd,
+    GIT_INDEX_FILE: indexFile(cwd),
+    GIT_CONFIG_NOSYSTEM: "1",
+    // Git's built-in empty tree, which needs no object in the repo.
+    GIT_ATTR_SOURCE: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
+  };
   return new Promise<string>((resolve, reject) => {
     const options = { cwd, env, timeout: 5000 };
     execFile("git", args, options, (error, stdout, stderr) => {
@@ -111,34 +133,6 @@ function execGit(cwd: string, env: NodeJS.ProcessEnv, args: string[]) {
       }
     });
   });
-}
-
-const undoDir = join(getAgentDir(), "undo");
-
-function gitDir(cwd: string) {
-  return join(undoDir, encodeCwd(cwd));
-}
-
-// A per-process index, so concurrent sessions don't collide on its lock.
-function indexFile(cwd: string) {
-  return join(gitDir(cwd), `index-${process.pid}`);
-}
-
-// Runs git against a private repo, leaving the project's own git state
-// untouched.
-function git(cwd: string, ...args: string[]) {
-  // Passes only PATH, and hides global and system config and the project's
-  // attributes, so files are stored byte for byte.
-  const env = {
-    PATH: process.env["PATH"],
-    GIT_DIR: gitDir(cwd),
-    GIT_WORK_TREE: cwd,
-    GIT_INDEX_FILE: indexFile(cwd),
-    GIT_CONFIG_NOSYSTEM: "1",
-    // Git's built-in empty tree, which needs no object in the repo.
-    GIT_ATTR_SOURCE: "4b825dc642cb6eb9a060e54bf8d69288fbee4904",
-  };
-  return execGit(cwd, env, args);
 }
 
 // Creates the private repo if missing. Re-running init would rewrite the
