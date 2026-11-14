@@ -8,6 +8,7 @@
 // - Restoring a point with other ignore rules deletes the files it ignored.
 // - Keeps only the executable bit.
 // - A restore failing after navigation only warns.
+// - A restore that can't delete a file leaves it, silently.
 // - Never prunes the undo repo.
 // - Each session's first snapshot rehashes every file.
 // - A killed process leaves its index behind.
