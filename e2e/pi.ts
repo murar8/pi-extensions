@@ -6,12 +6,12 @@ import { TuiTest } from "@microsoft/tui-test";
 
 const root = join(import.meta.dirname, "..");
 
-// Runs pi in terminal with only extension, a file in extensions, loaded, in
-// home.
+// Runs pi in terminal with only extension, a directory in extensions, loaded,
+// in home.
 function runPi(terminal: TuiTest, home: string, extension: string) {
   return terminal.run(
     join(root, "node_modules/.bin/pi"),
-    ["-e", join(root, "extensions", `${extension}.ts`)],
+    ["-e", join(root, "extensions", extension, "index.ts")],
     {
       cwd: home,
       // run adds env to the host's, so blank the host's.

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import stash from "./stash.ts";
-import type { StashPi, StashUI } from "./stash.ts";
+import stash from "./index.ts";
+import type { StashPi, StashUI } from "./index.ts";
 
 type Handler = Parameters<StashPi["registerShortcut"]>[1]["handler"];
 

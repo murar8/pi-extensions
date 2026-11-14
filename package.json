@@ -15,13 +15,6 @@
   "imports": {
     "#e2e/*": "./e2e/*"
   },
-  "pi": {
-    "extensions": [
-      "extensions/*.ts",
-      "!extensions/*.test.ts",
-      "!extensions/*.e2e.ts"
-    ]
-  },
   "scripts": {
     "prepare": "git config core.hooksPath .githooks",
     "format:prettier:check": "prettier --check .",
