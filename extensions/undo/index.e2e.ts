@@ -209,6 +209,8 @@ void suite("undo", { concurrency: true }, () => {
     const terminal = await startUndo(t);
     await terminal.submit("hi");
     await terminal.getByText("snapshot failed, disabling").expect();
-    await terminal.getByText("overlaps the agent dir").expect();
+    await terminal
+      .getByText("overlaps the agent dir", { whitespace: "normalize" })
+      .expect();
   });
 });
