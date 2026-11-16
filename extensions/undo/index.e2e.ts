@@ -11,8 +11,12 @@ import { startPi } from "#e2e/pi.ts";
 
 const execFileAsync = promisify(execFile);
 
+// Keeps out the host's GIT_* vars, as hooks set GIT_INDEX_FILE.
 function git(cwd: string, ...args: string[]) {
-  return execFileAsync("git", args, { cwd });
+  return execFileAsync("git", args, {
+    cwd,
+    env: { PATH: process.env["PATH"] },
+  });
 }
 
 // Each file in cwd with its contents.
