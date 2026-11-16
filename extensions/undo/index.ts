@@ -14,6 +14,8 @@
 // - Each session's first snapshot rehashes every file.
 // - A killed process leaves its index behind.
 // - Diffs over 1MB or 5s fail to show.
+// - A tool result restores the files before its turn, unless it's the turn's
+//   last.
 
 import { execFile, spawnSync } from "node:child_process";
 import { access, mkdir, realpath, rm } from "node:fs/promises";
@@ -25,7 +27,7 @@ import type {
   ExtensionContext,
   ExtensionFactory,
 } from "@earendil-works/pi-coding-agent";
-import { snapshotData, findSnapshot, UNDO_ENTRY_CUSTOM_TYPE } from "./entry.ts";
+import { findTree, repeats, UNDO_ENTRY_CUSTOM_TYPE } from "./snapshot.ts";
 
 // Encodes cwd into a directory name, as pi does for session dirs:
 // https://github.com/earendil-works/pi/blob/b4afdddf44e059c67ccf5097e5317d913521b470/packages/coding-agent/src/core/session-manager.ts#L593
@@ -183,9 +185,11 @@ function undo(pi: ExtensionAPI) {
     try {
       if (disabled) return;
       const tree = await writeTree(ctx.cwd);
-      const branch = ctx.sessionManager.getBranch();
-      const snapshot = snapshotData(branch, tree);
-      if (snapshot) pi.appendEntry(UNDO_ENTRY_CUSTOM_TYPE, snapshot);
+      // Skips repeating the snapshot at the leaf, as before_agent_start does
+      // after turn_end.
+      if (!repeats(ctx.sessionManager.getLeafEntry(), tree)) {
+        pi.appendEntry(UNDO_ENTRY_CUSTOM_TYPE, tree);
+      }
       return tree;
     } catch (error) {
       disabled = true;
@@ -215,7 +219,7 @@ function undo(pi: ExtensionAPI) {
     if (!current) return { cancel: true };
     const entries = ctx.sessionManager.getEntries();
     const branch = ctx.sessionManager.getBranch(preparation.targetId);
-    const tree = findSnapshot(branch, entries);
+    const tree = findTree(entries, branch);
     if (!tree || tree === current) return;
     let stat;
     try {
