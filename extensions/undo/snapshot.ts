@@ -27,34 +27,20 @@ function opensInEditor(entry?: SessionEntry) {
   return user || custom;
 }
 
-// The children of `parentId`, as pi's getChildren, which extensions can't call:
-// https://github.com/earendil-works/pi/blob/b4afdddf44e059c67ccf5097e5317d913521b470/packages/coding-agent/src/core/session-manager.ts#L1430
-function getChildren(entries: SessionEntry[], parentId: string) {
-  return entries.filter((e) => e.parentId === parentId);
+// The tree of the first snapshot after `id`, down to the next message. Follows
+// the first child, the branch that came first, so later visits don't count.
+function firstAfter(entries: SessionEntry[], id: string): string | undefined {
+  const child = entries.find((e) => e.parentId === id);
+  if (!child || child.type === "message") return undefined;
+  return isSnapshot(child) ? child.data : firstAfter(entries, child.id);
 }
 
-// The entries below `parentId` on every branch, down to the next messages.
-function entriesBelow(
-  entries: SessionEntry[],
-  parentId: string,
-): SessionEntry[] {
-  return getChildren(entries, parentId)
-    .filter((e) => e.type !== "message")
-    .flatMap((e) => [e, ...entriesBelow(entries, e.id)]);
-}
-
-// The tree of the latest snapshot at the message `id`, on every branch.
-function latestAt(entries: SessionEntry[], id: string) {
-  const below = new Set(entriesBelow(entries, id));
-  return entries.filter(isSnapshot).findLast((e) => below.has(e))?.data;
-}
-
-// The tree to restore at the end of `branch`: where you last left off at a
-// message, or else the files as of the entry.
+// The tree to restore at the end of `branch`: the files right after a message,
+// or else the files as of the entry.
 export function findTree(entries: SessionEntry[], branch: SessionEntry[]) {
   if (opensInEditor(branch.at(-1))) branch = branch.slice(0, -1);
   const target = branch.at(-1);
-  const at =
-    target?.type === "message" ? latestAt(entries, target.id) : undefined;
-  return at ?? branch.findLast(isSnapshot)?.data;
+  const after =
+    target?.type === "message" ? firstAfter(entries, target.id) : undefined;
+  return after ?? branch.findLast(isSnapshot)?.data;
 }

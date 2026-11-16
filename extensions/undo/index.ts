@@ -16,6 +16,8 @@
 // - Diffs over 1MB or 5s fail to show.
 // - A tool result restores the files before its turn, unless it's the turn's
 //   last.
+// - A message restores the files right after it, dropping edits from later
+//   visits, which only their snapshot entry restores.
 
 import { execFile, spawnSync } from "node:child_process";
 import { access, mkdir, realpath, rm } from "node:fs/promises";
@@ -265,7 +267,9 @@ function undo(pi: ExtensionAPI) {
     }
   });
 
+  // Catches changes since the last snapshot, like from a ! command.
   pi.on("session_shutdown", async (_event, ctx) => {
+    await snapshot(ctx);
     await rm(indexFile(ctx.cwd), { force: true });
   });
 }

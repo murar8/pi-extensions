@@ -117,15 +117,14 @@ void describe("findTree", { concurrency: true }, () => {
     assert.equal(s.findTree(c1), "tree-1");
   });
 
-  void test("selecting a message counts the snapshots after a custom message below it", () => {
+  void test("selecting a message looks past a custom message after it", () => {
     const s = new Session();
     s.snapshot("tree-1");
     s.user();
     const a1 = s.assistant();
-    s.snapshot("tree-2");
     s.customMessage();
-    s.snapshot("tree-3");
-    assert.equal(s.findTree(a1), "tree-3");
+    s.snapshot("tree-2");
+    assert.equal(s.findTree(a1), "tree-2");
   });
 
   void test("selecting an assistant message without a snapshot restores the previous one", () => {
@@ -178,7 +177,7 @@ void describe("findTree", { concurrency: true }, () => {
     assert.equal(s.findTree(r1), "tree-1");
   });
 
-  void test("selecting a message restores the latest snapshot at it on any branch", () => {
+  void test("selecting a message ignores the snapshots of later visits", () => {
     const s = new Session();
     s.snapshot("tree-1");
     s.user();
@@ -186,10 +185,10 @@ void describe("findTree", { concurrency: true }, () => {
     s.snapshot("tree-2");
     s.branch(a1);
     s.snapshot("tree-3");
-    assert.equal(s.findTree(a1), "tree-3");
+    assert.equal(s.findTree(a1), "tree-2");
   });
 
-  void test("selecting a message counts the snapshots after its branch summary", () => {
+  void test("selecting a message ignores the snapshots after a later branch summary", () => {
     const s = new Session();
     s.snapshot("tree-1");
     s.user();
@@ -197,7 +196,7 @@ void describe("findTree", { concurrency: true }, () => {
     s.snapshot("tree-2");
     s.branchWithSummary(a1);
     s.snapshot("tree-3");
-    assert.equal(s.findTree(a1), "tree-3");
+    assert.equal(s.findTree(a1), "tree-2");
   });
 
   void test("selecting a non-message entry restores the files as of it", () => {
