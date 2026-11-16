@@ -21,12 +21,11 @@ import { join, sep } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
 import { Spacer, truncateToWidth } from "@earendil-works/pi-tui";
 import type {
-  CustomEntry,
   ExtensionAPI,
   ExtensionContext,
   ExtensionFactory,
-  SessionEntry,
 } from "@earendil-works/pi-coding-agent";
+import { snapshotData, findSnapshot, UNDO_ENTRY_CUSTOM_TYPE } from "./entry.ts";
 
 // Encodes cwd into a directory name, as pi does for session dirs:
 // https://github.com/earendil-works/pi/blob/b4afdddf44e059c67ccf5097e5317d913521b470/packages/coding-agent/src/core/session-manager.ts#L593
@@ -40,44 +39,6 @@ function overlaps(a: string, b: string) {
   a = join(a, sep);
   b = join(b, sep);
   return a.startsWith(b) || b.startsWith(a);
-}
-
-// A snapshot of the files at message `at`, the last one before it.
-function isSnapshot(
-  entry: SessionEntry,
-): entry is CustomEntry<{ tree: string; at?: string }> {
-  return entry.type === "custom" && entry.customType === "undo";
-}
-
-function lastMessageId(entries: SessionEntry[]) {
-  return entries.findLast(({ type }) => type === "message")?.id;
-}
-
-// Whether /tree opens `entry` in the editor, moving the leaf to its parent, as
-// pi does:
-// https://github.com/earendil-works/pi/blob/b4afdddf44e059c67ccf5097e5317d913521b470/packages/coding-agent/src/core/agent-session.ts#L4255
-function opensInEditor(entry: SessionEntry | undefined) {
-  const user = entry?.type === "message" && entry.message.role === "user";
-  const custom = entry?.type === "custom_message";
-  return user || custom;
-}
-
-// Finds the latest snapshot at message `at`.
-function findSnapshotAt(entries: SessionEntry[], at: string | undefined) {
-  if (!at) return;
-  return entries.filter(isSnapshot).findLast(({ data }) => data?.at === at);
-}
-
-// Finds the latest snapshot at the /tree target, falling back to the last one
-// before it.
-function findSnapshot({ sessionManager }: ExtensionContext, targetId: string) {
-  const branch = sessionManager.getBranch(targetId);
-  if (opensInEditor(branch.at(-1))) branch.pop();
-  const last = branch.findLast(isSnapshot);
-  // A selected snapshot is the exact state there.
-  if (last === branch.at(-1)) return last;
-  const at = lastMessageId(branch);
-  return findSnapshotAt(sessionManager.getEntries(), at) ?? last;
 }
 
 function warn({ ui }: ExtensionContext, text: string, error: unknown) {
@@ -223,10 +184,8 @@ function undo(pi: ExtensionAPI) {
       if (disabled) return;
       const tree = await writeTree(ctx.cwd);
       const branch = ctx.sessionManager.getBranch();
-      const last = branch.at(-1);
-      // Skips repeating the leaf, as before_agent_start does after turn_end.
-      if (last && isSnapshot(last) && last.data?.tree === tree) return tree;
-      pi.appendEntry("undo", { tree, at: lastMessageId(branch) });
+      const snapshot = snapshotData(branch, tree);
+      if (snapshot) pi.appendEntry(UNDO_ENTRY_CUSTOM_TYPE, snapshot);
       return tree;
     } catch (error) {
       disabled = true;
@@ -254,7 +213,9 @@ function undo(pi: ExtensionAPI) {
     if (!ctx.hasUI || disabled) return;
     const current = await snapshot(ctx);
     if (!current) return { cancel: true };
-    const tree = findSnapshot(ctx, preparation.targetId)?.data?.tree;
+    const entries = ctx.sessionManager.getEntries();
+    const branch = ctx.sessionManager.getBranch(preparation.targetId);
+    const tree = findSnapshot(branch, entries);
     if (!tree || tree === current) return;
     let stat;
     try {
