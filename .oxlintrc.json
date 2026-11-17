@@ -32,6 +32,7 @@
     "node"
   ],
   "rules": {
+    "eqeqeq": "error",
     "func-style": ["error", "declaration"],
     "import/consistent-type-specifier-style": ["error", "prefer-top-level"],
     "import/extensions": ["error", "always", { "ignorePackages": true }],
@@ -72,6 +73,12 @@
       {
         "allowAny": false,
         "allowNullish": false
+      }
+    ],
+    "typescript/strict-boolean-expressions": [
+      "error",
+      {
+        "allowNullableBoolean": true
       }
     ],
     "typescript/switch-exhaustiveness-check": "error",

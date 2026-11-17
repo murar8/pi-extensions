@@ -8,7 +8,7 @@ export default function undo(pi: ExtensionAPI) {
       ctx.abort();
       await ctx.waitForIdle();
       const target = undoTarget(ctx.sessionManager);
-      if (target) {
+      if (target !== undefined) {
         await ctx.navigateTree(target);
       } else {
         ctx.ui.notify("Nothing to undo", "info");
@@ -21,7 +21,7 @@ export default function undo(pi: ExtensionAPI) {
       ctx.abort();
       await ctx.waitForIdle();
       const target = redoTarget(ctx.sessionManager);
-      if (target) {
+      if (target !== undefined) {
         await ctx.navigateTree(target);
       } else {
         ctx.ui.notify("Nothing to redo", "info");

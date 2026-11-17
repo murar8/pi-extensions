@@ -141,11 +141,11 @@ export default function snapshots(pi: ExtensionAPI) {
     pending = undefined;
     if (!ctx.hasUI || !repo) return undefined;
     const current = await snapshot(ctx);
-    if (!current) return { cancel: true };
+    if (current === undefined) return { cancel: true };
     const entries = ctx.sessionManager.getEntries();
     const branch = ctx.sessionManager.getBranch(preparation.targetId);
     const tree = findTree(entries, branch);
-    if (!tree || tree === current) return undefined;
+    if (tree === undefined || tree === current) return undefined;
     let stat;
     try {
       stat = fitTitle(await repo.diffStat(current, tree));
@@ -180,7 +180,7 @@ export default function snapshots(pi: ExtensionAPI) {
   // Restores after navigation, so an aborted branch summary leaves the files
   // alone. Warns after pi redraws the chat, which would clear the warning.
   pi.on("session_tree", async (_event, ctx) => {
-    if (!pending || !repo) return;
+    if (pending === undefined || !repo) return;
     try {
       await repo.restore(pending);
     } catch (error) {
