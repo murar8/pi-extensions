@@ -16,7 +16,7 @@ const EMPTY_TREE = "4b825dc642cb6eb9a060e54bf8d69288fbee4904";
 // A dir removed after t.
 async function createTempDir(t: TestContext) {
   const dir = await mkdtemp(join(tmpdir(), "pi-test-"));
-  t.after(() => rm(dir, { recursive: true, force: true }));
+  t.after(async () => rm(dir, { recursive: true, force: true }));
   return dir;
 }
 

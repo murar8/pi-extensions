@@ -58,10 +58,14 @@
     "prefer-const": "error",
     "prefer-rest-params": "error",
     "prefer-spread": "error",
+    "typescript/consistent-return": "error",
     "typescript/consistent-type-exports": "error",
     "typescript/consistent-type-imports": "error",
+    "typescript/method-signature-style": "error",
     "typescript/no-unnecessary-qualifier": "error",
     "typescript/no-unsafe-enum-assignment": "error",
+    "typescript/prefer-readonly": "error",
+    "typescript/promise-function-async": "error",
     "typescript/no-unsafe-type-assertion": "error",
     "typescript/restrict-template-expressions": [
       "error",
@@ -70,6 +74,7 @@
         "allowNullish": false
       }
     ],
+    "typescript/switch-exhaustiveness-check": "error",
     "unicorn/filename-case": "error",
     "unicorn/no-await-expression-member": "error",
     "unicorn/no-unnecessary-array-flat-depth": "error",
@@ -79,12 +84,6 @@
     "unicorn/no-useless-error-capture-stack-trace": "error",
     "unicorn/no-useless-iterator-to-array": "error",
     "unicorn/no-useless-promise-resolve-reject": "error",
-    "unicorn/no-useless-switch-case": "error",
-    "unicorn/no-useless-undefined": [
-      "error",
-      {
-        "checkArguments": false
-      }
-    ]
+    "unicorn/no-useless-switch-case": "error"
   }
 }

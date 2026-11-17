@@ -67,7 +67,7 @@ void suite("undo", { concurrency: true }, () => {
   void test("/redo ignores snapshots kept off the path", async (t) => {
     // Outside home, as overlapping the agent dir disables snapshots.
     const cwd = await mkdtemp(join(tmpdir(), "pi-e2e-"));
-    t.after(() => rm(cwd, { recursive: true }));
+    t.after(async () => rm(cwd, { recursive: true }));
     const snapshots = join(import.meta.dirname, "../snapshots/index.ts");
     const terminal = await startPi(t, {
       extension: "undo",

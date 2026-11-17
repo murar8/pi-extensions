@@ -18,7 +18,7 @@ interface Options {
 }
 
 // Runs pi in terminal with home as its home.
-function runPi(
+async function runPi(
   terminal: TuiTest,
   home: string,
   { extension, cwd = home, args = [], env }: Options,
@@ -55,7 +55,7 @@ async function stopPi(t: TestContext, terminal: TuiTest, home: string) {
 export async function startPi(t: TestContext, options: Options) {
   const home = await mkdtemp(join(tmpdir(), "pi-e2e-"));
   const terminal = TuiTest.ephemeral();
-  t.after(() => stopPi(t, terminal, home));
+  t.after(async () => stopPi(t, terminal, home));
   await runPi(terminal, home, options);
   await terminal.getByText("[Extensions]").expect(); // Shown once startup is done.
   return terminal;

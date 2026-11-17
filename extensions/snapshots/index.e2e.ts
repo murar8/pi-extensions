@@ -19,7 +19,7 @@ import { startPi } from "#e2e/pi.ts";
 const execFileAsync = promisify(execFile);
 
 // Keeps out the host's GIT_* vars, as hooks set GIT_INDEX_FILE.
-function git(cwd: string, ...args: string[]) {
+async function git(cwd: string, ...args: string[]) {
   return execFileAsync("git", args, {
     cwd,
     env: { PATH: process.env["PATH"] },
@@ -42,7 +42,7 @@ async function readFiles(cwd: string) {
 // A dir removed after t.
 async function createTempDir(t: TestContext) {
   const dir = await mkdtemp(join(tmpdir(), "pi-e2e-"));
-  t.after(() => rm(dir, { recursive: true }));
+  t.after(async () => rm(dir, { recursive: true }));
   return dir;
 }
 
@@ -56,7 +56,7 @@ async function createProject(t: TestContext) {
 
 // pi with snapshots and its fixture in cwd, home if unset, with env added to its
 // environment.
-function startSnapshots(
+async function startSnapshots(
   t: TestContext,
   cwd?: string,
   env?: Record<string, string>,

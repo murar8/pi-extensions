@@ -6,7 +6,7 @@ import type {
 import { fauxFixture } from "#e2e/faux.ts";
 
 // Replies only once aborted.
-function hang(...[, options]: Parameters<FauxResponseFactory>) {
+async function hang(...[, options]: Parameters<FauxResponseFactory>) {
   return new Promise<AssistantMessage>((resolve) => {
     options?.signal?.addEventListener("abort", () => {
       resolve(fauxAssistantMessage(""));

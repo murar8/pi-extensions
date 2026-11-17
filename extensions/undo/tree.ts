@@ -39,7 +39,7 @@ export function redoTarget(session: Session) {
   const start = branch.findLast(isModelVisible);
   const rest = below(session.getEntries(), start);
   const latest = rest.findLast(isModelVisible);
-  if (!latest) return;
+  if (!latest) return undefined;
   const depth = start ? branch.indexOf(start) + 1 : 0;
   const path = session.getBranch(latest.id).slice(depth);
   const target = path.filter(isModelVisible).slice(1).find(isUser) ?? latest;

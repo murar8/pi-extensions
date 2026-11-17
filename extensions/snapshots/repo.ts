@@ -15,9 +15,9 @@ class GitError extends Error {
 // A private repo snapshotting a work tree, leaving the work tree's own git
 // state untouched.
 export class Repo {
-  #workTree: string;
-  #gitDir: string;
-  #timeout: number;
+  readonly #workTree: string;
+  readonly #gitDir: string;
+  readonly #timeout: number;
 
   private constructor(workTree: string, gitDir: string, timeout: number) {
     this.#workTree = workTree;
@@ -42,7 +42,7 @@ export class Repo {
 
   // Runs git against the repo. Rejects with a short message on failure or
   // timeout.
-  #git(subcommand: string, ...args: string[]) {
+  async #git(subcommand: string, ...args: string[]) {
     // Leaves out the args, as hashes would flood the message.
     const command = `git ${subcommand}`;
     // Passes only PATH, and hides global and system config and the work tree's
@@ -108,12 +108,12 @@ export class Repo {
   }
 
   // The one-line diffstat between two trees.
-  diffStat(from: string, to: string) {
+  async diffStat(from: string, to: string) {
     return this.#git("diff", "--shortstat", from, to);
   }
 
   // The colored patch between two trees.
-  diff(from: string, to: string) {
+  async diff(from: string, to: string) {
     return this.#git("diff", "--color=always", from, to);
   }
 
