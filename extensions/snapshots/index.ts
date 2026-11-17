@@ -2,7 +2,7 @@
 //
 // Accepted limitations:
 // - Needs git >= 2.41.
-// - Changes inside nested repos aren't undone.
+// - Changes inside nested repos aren't restored.
 // - Skips unreadable files.
 // - Only the .gitignore files in cwd apply.
 // - Restoring a point with other ignore rules deletes the files it ignored.
@@ -10,7 +10,7 @@
 // - Ignores empty directories.
 // - A restore failing after navigation only warns.
 // - A restore that can't delete a file leaves it, silently.
-// - Never prunes the undo repo.
+// - Never prunes the snapshot repo.
 // - Each session's first snapshot rehashes every file.
 // - A killed process leaves its index behind.
 // - Diffs over 1MB or 5s fail to show.
@@ -30,7 +30,7 @@ import type {
   ExtensionFactory,
 } from "@earendil-works/pi-coding-agent";
 import { Repo } from "./repo.ts";
-import { findTree, repeats, UNDO_ENTRY_CUSTOM_TYPE } from "./snapshot.ts";
+import { findTree, repeats, ENTRY_CUSTOM_TYPE } from "./snapshot.ts";
 
 // Encodes cwd into a directory name, as pi does for session dirs:
 // https://github.com/earendil-works/pi/blob/b4afdddf44e059c67ccf5097e5317d913521b470/packages/coding-agent/src/core/session-manager.ts#L593
@@ -48,7 +48,7 @@ async function overlaps(a: string, b: string) {
 
 function warn({ ui }: ExtensionContext, text: string, error: unknown) {
   const message = error instanceof Error ? error.message : String(error);
-  ui.notify(`undo: ${text}: ${message}`, "warning");
+  ui.notify(`snapshots: ${text}: ${message}`, "warning");
 }
 
 // The dialog title's horizontal padding.
@@ -83,7 +83,7 @@ async function showDiff({ ui }: ExtensionContext, input: string) {
   });
 }
 
-function undo(pi: ExtensionAPI) {
+function snapshots(pi: ExtensionAPI) {
   // Set on session start, as cwd is fixed for this instance. Unset on the
   // first snapshot failure, so a broken or slow cwd costs at most one timeout.
   let repo: Repo | undefined;
@@ -97,7 +97,7 @@ function undo(pi: ExtensionAPI) {
       if (await overlaps(ctx.cwd, agentDir)) {
         throw new Error(`${ctx.cwd} overlaps the agent dir`);
       }
-      const gitDir = join(agentDir, "undo", encodeCwd(ctx.cwd));
+      const gitDir = join(agentDir, "snapshots", encodeCwd(ctx.cwd));
       repo = await Repo.open(ctx.cwd, gitDir);
     } catch (error) {
       warn(ctx, "disabled", error);
@@ -112,7 +112,7 @@ function undo(pi: ExtensionAPI) {
       // Skips repeating the snapshot at the leaf, as before_agent_start does
       // after turn_end.
       if (!repeats(ctx.sessionManager.getLeafEntry(), tree)) {
-        pi.appendEntry(UNDO_ENTRY_CUSTOM_TYPE, tree);
+        pi.appendEntry(ENTRY_CUSTOM_TYPE, tree);
       }
       return tree;
     } catch (error) {
@@ -198,4 +198,4 @@ function undo(pi: ExtensionAPI) {
   });
 }
 
-export default undo satisfies ExtensionFactory;
+export default snapshots satisfies ExtensionFactory;

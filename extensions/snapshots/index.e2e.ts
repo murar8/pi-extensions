@@ -54,11 +54,15 @@ async function createProject(t: TestContext) {
   return cwd;
 }
 
-// pi with undo and its fixture in cwd, home if unset, with env added to its
+// pi with snapshots and its fixture in cwd, home if unset, with env added to its
 // environment.
-function startUndo(t: TestContext, cwd?: string, env?: Record<string, string>) {
+function startSnapshots(
+  t: TestContext,
+  cwd?: string,
+  env?: Record<string, string>,
+) {
   return startPi(t, {
-    extension: "undo",
+    extension: "snapshots",
     cwd,
     args: ["-e", join(import.meta.dirname, "index.fixture.ts")],
     env,
@@ -84,14 +88,14 @@ async function navigate(terminal: TuiTest, search: string) {
 // env added to pi's environment.
 async function openRestoreDialog(t: TestContext, env?: Record<string, string>) {
   const cwd = await createProject(t);
-  const terminal = await startUndo(t, cwd, env);
+  const terminal = await startSnapshots(t, cwd, env);
   await changeFiles(terminal);
   await navigate(terminal, "edit a");
   await terminal.getByText("Restore files?").expect();
   return { cwd, terminal };
 }
 
-void suite("undo", { concurrency: true }, () => {
+void suite("snapshots", { concurrency: true }, () => {
   void test("restore on /tree reverts edits, deletions and new files", async (t) => {
     const { cwd, terminal } = await openRestoreDialog(t);
     await terminal.press("Down");
@@ -155,7 +159,7 @@ void suite("undo", { concurrency: true }, () => {
   });
 
   void test("the diffstat is cut to the terminal width", async (t) => {
-    const terminal = await startUndo(t, await createProject(t));
+    const terminal = await startSnapshots(t, await createProject(t));
     await terminal.resize(40, 30);
     await changeFiles(terminal);
     await navigate(terminal, "edit a");
@@ -165,7 +169,7 @@ void suite("undo", { concurrency: true }, () => {
 
   void test("no dialog when files match the target", async (t) => {
     const cwd = await createProject(t);
-    const terminal = await startUndo(t, cwd);
+    const terminal = await startSnapshots(t, cwd);
     await changeFiles(terminal);
     await writeFile(join(cwd, "a.txt"), "a");
     await writeFile(join(cwd, "b.txt"), "b");
@@ -191,28 +195,28 @@ void suite("undo", { concurrency: true }, () => {
   });
 
   void test("a deleted repo cancels navigation", async (t) => {
-    // Outside cwd, as overlapping it disables undo.
+    // Outside cwd, as overlapping it disables snapshots.
     const agentDir = await createTempDir(t);
-    const terminal = await startUndo(t, await createProject(t), {
+    const terminal = await startSnapshots(t, await createProject(t), {
       PI_CODING_AGENT_DIR: agentDir,
     });
     await changeFiles(terminal);
-    await rm(join(agentDir, "undo"), { recursive: true });
+    await rm(join(agentDir, "snapshots"), { recursive: true });
     await navigate(terminal, "edit a");
     await terminal.getByText("snapshot failed, disabling").expect();
     await terminal.getByText("Navigation cancelled").expect();
   });
 
   void test("a missing snapshot cancels navigation", async (t) => {
-    // Outside cwd, as overlapping it disables undo.
+    // Outside cwd, as overlapping it disables snapshots.
     const agentDir = await createTempDir(t);
-    const terminal = await startUndo(t, await createProject(t), {
+    const terminal = await startSnapshots(t, await createProject(t), {
       PI_CODING_AGENT_DIR: agentDir,
     });
     await changeFiles(terminal);
     // Deletes the snapshots and the index, keeping the repo, so the next
     // snapshot rehashes every file.
-    const paths = glob(["undo/*/objects/??", "undo/*/index-*"], {
+    const paths = glob(["snapshots/*/objects/??", "snapshots/*/index-*"], {
       cwd: agentDir,
     });
     for await (const path of paths) {
@@ -225,7 +229,7 @@ void suite("undo", { concurrency: true }, () => {
 
   void test("the project's own git state is left untouched", async (t) => {
     const cwd = await createProject(t);
-    const terminal = await startUndo(t, cwd);
+    const terminal = await startSnapshots(t, cwd);
     await changeFiles(terminal);
     await git(cwd, "init", "--quiet");
     await git(cwd, "add", "--all");
@@ -240,8 +244,8 @@ void suite("undo", { concurrency: true }, () => {
 
   void test("cwd overlapping the agent dir warns and disables", async (t) => {
     // Runs in home, which contains the agent dir.
-    const terminal = await startUndo(t);
-    await terminal.getByText("undo: disabled").expect();
+    const terminal = await startSnapshots(t);
+    await terminal.getByText("snapshots: disabled").expect();
     await terminal
       .getByText("overlaps the agent dir", { whitespace: "normalize" })
       .expect();

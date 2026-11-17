@@ -2,14 +2,14 @@ import assert from "node:assert/strict";
 import { describe, test } from "node:test";
 import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
-import { findTree, repeats, UNDO_ENTRY_CUSTOM_TYPE } from "./snapshot.ts";
+import { findTree, repeats, ENTRY_CUSTOM_TYPE } from "./snapshot.ts";
 
 // A session whose methods append an entry and return its id.
 class Session {
   manager = SessionManager.inMemory();
 
   snapshot(tree: string) {
-    return this.manager.appendCustomEntry(UNDO_ENTRY_CUSTOM_TYPE, tree);
+    return this.manager.appendCustomEntry(ENTRY_CUSTOM_TYPE, tree);
   }
 
   user() {

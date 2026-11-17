@@ -3,13 +3,11 @@ import type {
   SessionEntry,
 } from "@earendil-works/pi-coding-agent";
 
-export const UNDO_ENTRY_CUSTOM_TYPE = "undo-v2";
+export const ENTRY_CUSTOM_TYPE = "snapshots-v1";
 
 // A snapshot of the files, holding their tree hash.
 function isSnapshot(entry?: SessionEntry): entry is CustomEntry<string> {
-  return (
-    entry?.type === "custom" && entry.customType === UNDO_ENTRY_CUSTOM_TYPE
-  );
+  return entry?.type === "custom" && entry.customType === ENTRY_CUSTOM_TYPE;
 }
 
 // Whether snapshotting `tree` at `leaf` would repeat the snapshot there. Only
