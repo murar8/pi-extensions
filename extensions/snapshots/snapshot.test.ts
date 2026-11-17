@@ -4,235 +4,214 @@ import { SessionManager } from "@earendil-works/pi-coding-agent";
 import { fauxAssistantMessage } from "@earendil-works/pi-ai";
 import { findTree, repeats, ENTRY_CUSTOM_TYPE } from "./snapshot.ts";
 
-// A session whose methods append an entry and return its id.
-class Session {
-  manager = SessionManager.inMemory();
+// Appenders that add an entry to `m` and return its id.
+function snapshot(m: SessionManager, tree: string) {
+  return m.appendCustomEntry(ENTRY_CUSTOM_TYPE, tree);
+}
 
-  snapshot(tree: string) {
-    return this.manager.appendCustomEntry(ENTRY_CUSTOM_TYPE, tree);
-  }
+function user(m: SessionManager) {
+  return m.appendMessage({ role: "user", content: "", timestamp: 0 });
+}
 
-  user() {
-    return this.manager.appendMessage({
-      role: "user",
-      content: "",
-      timestamp: 0,
-    });
-  }
+function assistant(m: SessionManager) {
+  return m.appendMessage(fauxAssistantMessage(""));
+}
 
-  assistant() {
-    return this.manager.appendMessage(fauxAssistantMessage(""));
-  }
+function customMessage(m: SessionManager) {
+  return m.appendCustomMessageEntry("", "", true);
+}
 
-  // Snapshots `tree` as index.ts does, skipping a repeat.
-  trigger(tree: string) {
-    if (!repeats(this.manager.getLeafEntry(), tree)) this.snapshot(tree);
-  }
+function toolResult(m: SessionManager) {
+  return m.appendMessage({
+    role: "toolResult",
+    toolCallId: "",
+    toolName: "",
+    content: [],
+    isError: false,
+    timestamp: 0,
+  });
+}
 
-  customMessage() {
-    return this.manager.appendCustomMessageEntry("", "", true);
-  }
+// Snapshots `tree` as index.ts does, skipping a repeat.
+function trigger(m: SessionManager, tree: string) {
+  if (!repeats(m.getLeafEntry(), tree)) snapshot(m, tree);
+}
 
-  modelChange() {
-    return this.manager.appendModelChange("", "");
-  }
-
-  branch(id: string) {
-    this.manager.branch(id);
-  }
-
-  branchWithSummary(id: string) {
-    return this.manager.branchWithSummary(id, "");
-  }
-
-  toolResult() {
-    return this.manager.appendMessage({
-      role: "toolResult",
-      toolCallId: "",
-      toolName: "",
-      content: [],
-      isError: false,
-      timestamp: 0,
-    });
-  }
-
-  // The tree /tree offers to restore at `id`.
-  findTree(id: string) {
-    const branch = this.manager.getBranch(id);
-    return findTree(this.manager.getEntries(), branch);
-  }
+// The tree /tree offers to restore at `id`.
+function treeAt(m: SessionManager, id: string) {
+  return findTree(m.getEntries(), m.getBranch(id));
 }
 
 void describe("findTree", { concurrency: true }, () => {
   void test("selecting an assistant message restores the files after its turn", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    const a1 = s.assistant();
-    s.snapshot("tree-2");
-    assert.equal(s.findTree(a1), "tree-2");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    const a1 = assistant(m);
+    snapshot(m, "tree-2");
+    assert.equal(treeAt(m, a1), "tree-2");
   });
 
   void test("selecting a user message restores the files before its prompt", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    const u1 = s.user();
-    s.assistant();
-    s.snapshot("tree-2");
-    assert.equal(s.findTree(u1), "tree-1");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    const u1 = user(m);
+    assistant(m);
+    snapshot(m, "tree-2");
+    assert.equal(treeAt(m, u1), "tree-1");
   });
 
   void test("selecting a user message restores the files at its parent message", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    const a1 = s.assistant();
-    s.snapshot("tree-2");
-    s.branch(a1);
-    const u2 = s.user();
-    assert.equal(s.findTree(u2), "tree-2");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    const a1 = assistant(m);
+    snapshot(m, "tree-2");
+    m.branch(a1);
+    const u2 = user(m);
+    assert.equal(treeAt(m, u2), "tree-2");
   });
 
   void test("selecting a user message ignores the snapshots after it", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    const u1 = s.user();
-    s.snapshot("tree-2");
-    assert.equal(s.findTree(u1), "tree-1");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    const u1 = user(m);
+    snapshot(m, "tree-2");
+    assert.equal(treeAt(m, u1), "tree-1");
   });
 
   void test("selecting a message without any snapshot restores nothing", () => {
-    const s = new Session();
-    const u1 = s.user();
-    s.assistant();
-    assert.equal(s.findTree(u1), undefined);
+    const m = SessionManager.inMemory();
+    const u1 = user(m);
+    assistant(m);
+    assert.equal(treeAt(m, u1), undefined);
   });
 
   void test("selecting a custom message restores the files before it", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    const c1 = s.customMessage();
-    s.assistant();
-    s.snapshot("tree-2");
-    assert.equal(s.findTree(c1), "tree-1");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    const c1 = customMessage(m);
+    assistant(m);
+    snapshot(m, "tree-2");
+    assert.equal(treeAt(m, c1), "tree-1");
   });
 
   void test("selecting a message looks past a custom message after it", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    const a1 = s.assistant();
-    s.customMessage();
-    s.snapshot("tree-2");
-    assert.equal(s.findTree(a1), "tree-2");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    const a1 = assistant(m);
+    customMessage(m);
+    snapshot(m, "tree-2");
+    assert.equal(treeAt(m, a1), "tree-2");
   });
 
   void test("selecting an assistant message without a snapshot restores the previous one", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    const a1 = s.assistant();
-    assert.equal(s.findTree(a1), "tree-1");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    const a1 = assistant(m);
+    assert.equal(treeAt(m, a1), "tree-1");
   });
 
   void test("selecting a snapshot restores exactly it", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    s.assistant();
-    const t2 = s.snapshot("tree-2");
-    s.snapshot("tree-3");
-    assert.equal(s.findTree(t2), "tree-2");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    assistant(m);
+    const t2 = snapshot(m, "tree-2");
+    snapshot(m, "tree-3");
+    assert.equal(treeAt(m, t2), "tree-2");
   });
 
   void test("selecting a turn's last tool result restores the files after the turn", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    s.assistant();
-    s.toolResult();
-    const r2 = s.toolResult();
-    s.snapshot("tree-2");
-    assert.equal(s.findTree(r2), "tree-2");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    assistant(m);
+    toolResult(m);
+    const r2 = toolResult(m);
+    snapshot(m, "tree-2");
+    assert.equal(treeAt(m, r2), "tree-2");
   });
 
   void test("selecting an assistant message with tool calls restores the files before its tools", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    const a1 = s.assistant();
-    s.toolResult();
-    s.snapshot("tree-2");
-    assert.equal(s.findTree(a1), "tree-1");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    const a1 = assistant(m);
+    toolResult(m);
+    snapshot(m, "tree-2");
+    assert.equal(treeAt(m, a1), "tree-1");
   });
 
   void test("selecting an earlier tool result restores the files before the turn", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    s.assistant();
-    const r1 = s.toolResult();
-    s.toolResult();
-    s.snapshot("tree-2");
-    assert.equal(s.findTree(r1), "tree-1");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    assistant(m);
+    const r1 = toolResult(m);
+    toolResult(m);
+    snapshot(m, "tree-2");
+    assert.equal(treeAt(m, r1), "tree-1");
   });
 
   void test("selecting a message ignores the snapshots of later visits", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    const a1 = s.assistant();
-    s.snapshot("tree-2");
-    s.branch(a1);
-    s.snapshot("tree-3");
-    assert.equal(s.findTree(a1), "tree-2");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    const a1 = assistant(m);
+    snapshot(m, "tree-2");
+    m.branch(a1);
+    snapshot(m, "tree-3");
+    assert.equal(treeAt(m, a1), "tree-2");
   });
 
   void test("selecting a message ignores the snapshots after a later branch summary", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    const a1 = s.assistant();
-    s.snapshot("tree-2");
-    s.branchWithSummary(a1);
-    s.snapshot("tree-3");
-    assert.equal(s.findTree(a1), "tree-2");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    const a1 = assistant(m);
+    snapshot(m, "tree-2");
+    m.branchWithSummary(a1, "");
+    snapshot(m, "tree-3");
+    assert.equal(treeAt(m, a1), "tree-2");
   });
 
   void test("selecting a non-message entry restores the files as of it", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    s.assistant();
-    s.snapshot("tree-2");
-    const m = s.modelChange();
-    s.snapshot("tree-3");
-    assert.equal(s.findTree(m), "tree-2");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    assistant(m);
+    snapshot(m, "tree-2");
+    const mc = m.appendModelChange("", "");
+    snapshot(m, "tree-3");
+    assert.equal(treeAt(m, mc), "tree-2");
   });
 });
 
 void describe("repeats", { concurrency: true }, () => {
   void test("a snapshot right after an identical one is skipped", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.trigger("tree-1");
-    assert.equal(s.manager.getEntries().length, 1);
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    trigger(m, "tree-1");
+    assert.equal(m.getEntries().length, 1);
   });
 
   void test("a snapshot matching only a snapshot further up is kept", () => {
-    const s = new Session();
-    s.snapshot("tree-1");
-    s.user();
-    const a1 = s.assistant();
-    s.snapshot("tree-2");
-    s.branch(a1);
-    s.snapshot("tree-3");
-    s.branch(a1);
-    s.trigger("tree-3");
-    s.user();
-    const a2 = s.assistant();
-    s.toolResult();
-    s.snapshot("tree-4");
-    assert.equal(s.findTree(a2), "tree-3");
+    const m = SessionManager.inMemory();
+    snapshot(m, "tree-1");
+    user(m);
+    const a1 = assistant(m);
+    snapshot(m, "tree-2");
+    m.branch(a1);
+    snapshot(m, "tree-3");
+    m.branch(a1);
+    trigger(m, "tree-3");
+    user(m);
+    const a2 = assistant(m);
+    toolResult(m);
+    snapshot(m, "tree-4");
+    assert.equal(treeAt(m, a2), "tree-3");
   });
 });
