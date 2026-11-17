@@ -6,6 +6,9 @@ import { TuiTest } from "@microsoft/tui-test";
 
 const ROOT = join(import.meta.dirname, "..");
 
+// Timeout of each step, in ms.
+const TIMEOUT = 1000;
+
 interface Options {
   // Loaded alone, a directory in extensions.
   extension: string;
@@ -28,6 +31,13 @@ async function runPi(
     ["-e", join(ROOT, "extensions", extension, "index.ts"), ...args],
     {
       cwd,
+      timeouts: {
+        text: TIMEOUT,
+        idle: TIMEOUT,
+        command: TIMEOUT,
+        exit: TIMEOUT,
+        ready: TIMEOUT,
+      },
       // run adds env to the host's, so blank the host's.
       env: {
         ...Object.fromEntries(Object.keys(process.env).map((key) => [key, ""])),

@@ -1,3 +1,4 @@
+import assert from "node:assert/strict";
 import { getPromptCacheTtlMs } from "@earendil-works/pi-ai";
 import type { Api, Model, ProviderEnv } from "@earendil-works/pi-ai";
 import type { SessionEntry } from "@earendil-works/pi-coding-agent";
@@ -76,6 +77,7 @@ export function cacheStatus({
   if (ttl === undefined) {
     return;
   }
+  assert.ok(ttl > 0, "prompt cache TTL must be positive");
   if (!idle) {
     return { type: "warm", left: ttl, ttl };
   }

@@ -28,8 +28,8 @@
     "lint:rumdl:fix": "rumdl check --fix .",
     "lint:shellcheck:check": "shellcheck .githooks/*",
     "test:coverage": "npm run test:unit -- --experimental-config-file=node.coverage.json",
-    "test:e2e": "node --test 'extensions/**/*.e2e.ts'",
-    "test:unit": "node --test"
+    "test:e2e": "node --test --test-timeout=2000 'extensions/**/*.e2e.ts'",
+    "test:unit": "node --test --test-timeout=200"
   },
   "peerDependencies": {
     "@earendil-works/pi-ai": "*",
