@@ -1,28 +1,6 @@
-import type {
-  ExtensionFactory,
-  ExtensionUIContext,
-} from "@earendil-works/pi-coding-agent";
-import type { KeyId } from "@earendil-works/pi-tui";
+import type { ExtensionAPI } from "@earendil-works/pi-coding-agent";
 
-export type StashUI = Pick<
-  ExtensionUIContext,
-  "getEditorText" | "setEditorText"
->;
-
-export interface StashContext {
-  ui: StashUI;
-}
-
-export interface StashShortcut {
-  description: string;
-  handler: (ctx: StashContext) => void;
-}
-
-export interface StashPi {
-  registerShortcut: (shortcut: KeyId, options: StashShortcut) => void;
-}
-
-function stash(pi: StashPi) {
+export default function stash(pi: ExtensionAPI) {
   let stashed = "";
   pi.registerShortcut("alt+s", {
     description: "Swap the prompt with the stash",
@@ -33,5 +11,3 @@ function stash(pi: StashPi) {
     },
   });
 }
-
-export default stash satisfies ExtensionFactory;

@@ -27,7 +27,6 @@ import { Spacer, truncateToWidth } from "@earendil-works/pi-tui";
 import type {
   ExtensionAPI,
   ExtensionContext,
-  ExtensionFactory,
 } from "@earendil-works/pi-coding-agent";
 import { Repo } from "./repo.ts";
 import { findTree, repeats, ENTRY_CUSTOM_TYPE } from "./snapshot.ts";
@@ -83,7 +82,7 @@ async function showDiff({ ui }: ExtensionContext, input: string) {
   });
 }
 
-function snapshots(pi: ExtensionAPI) {
+export default function snapshots(pi: ExtensionAPI) {
   // Set on session start, as cwd is fixed for this instance. Unset on the
   // first snapshot failure, so a broken or slow cwd costs at most one timeout.
   let repo: Repo | undefined;
@@ -197,5 +196,3 @@ function snapshots(pi: ExtensionAPI) {
     await repo?.close();
   });
 }
-
-export default snapshots satisfies ExtensionFactory;
