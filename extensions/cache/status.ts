@@ -13,7 +13,7 @@ type LastRequest =
     };
 
 // The last request, or why the cache went cold since.
-function lastRequest(branch: SessionEntry[]): LastRequest | undefined {
+function lastRequest(branch: SessionEntry[]) {
   let last: LastRequest | undefined;
   let level: string | undefined;
   for (const e of branch) {
@@ -70,18 +70,18 @@ export function cacheStatus({
   env,
 }: CacheStatusOptions): CacheStatus | undefined {
   if (!model) {
-    return undefined;
+    return;
   }
   const ttl = getPromptCacheTtlMs(model, { env });
   if (ttl === undefined) {
-    return undefined;
+    return;
   }
   if (!idle) {
     return { type: "warm", left: ttl, ttl };
   }
   const last = lastRequest(branch);
   if (!last) {
-    return undefined;
+    return;
   }
   if (last.type === "compacted") {
     return { type: "cold", reason: "compacted" };

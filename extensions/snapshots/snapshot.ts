@@ -29,7 +29,7 @@ function opensInEditor(entry?: SessionEntry) {
 // the first child, the branch that came first, so later visits don't count.
 function firstAfter(entries: SessionEntry[], id: string): string | undefined {
   const child = entries.find((e) => e.parentId === id);
-  if (!child || child.type === "message") return undefined;
+  if (!child || child.type === "message") return;
   return isSnapshot(child) ? child.data : firstAfter(entries, child.id);
 }
 

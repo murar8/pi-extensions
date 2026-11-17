@@ -122,9 +122,9 @@ export default function snapshots(pi: ExtensionAPI) {
   });
 
   // Saves the work tree as a snapshot, returning its tree hash.
-  async function snapshot(ctx: ExtensionContext): Promise<string | undefined> {
+  async function snapshot(ctx: ExtensionContext) {
     try {
-      if (!repo) return undefined;
+      if (!repo) return;
       const tree = await repo.save();
       // Skips repeating the snapshot at the leaf, as before_agent_start does
       // after turn_end.
@@ -137,7 +137,7 @@ export default function snapshots(pi: ExtensionAPI) {
       const failed = repo;
       repo = undefined;
       await failed?.close();
-      return undefined;
+      return;
     }
   }
 
@@ -157,13 +157,13 @@ export default function snapshots(pi: ExtensionAPI) {
   // Cancels navigation on failure, as navigating clears the warning.
   pi.on("session_before_tree", async ({ preparation }, ctx) => {
     pending = undefined;
-    if (!ctx.hasUI || !repo) return undefined;
+    if (!ctx.hasUI || !repo) return;
     const current = await snapshot(ctx);
     if (current === undefined) return { cancel: true };
     const entries = ctx.sessionManager.getEntries();
     const branch = ctx.sessionManager.getBranch(preparation.targetId);
     const tree = findTree(entries, branch);
-    if (tree === undefined || tree === current) return undefined;
+    if (tree === undefined || tree === current) return;
     let stat;
     try {
       stat = fitTitle(await repo.diffStat(current, tree));
@@ -182,9 +182,9 @@ export default function snapshots(pi: ExtensionAPI) {
         return { cancel: true };
       } else if (choice === "Restore") {
         pending = tree;
-        return undefined;
+        return;
       } else if (choice === "Keep") {
-        return undefined;
+        return;
       } else {
         try {
           await showDiff(ctx, await repo.diff(current, tree));

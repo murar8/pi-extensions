@@ -21,7 +21,7 @@ function statusColor(
 }
 
 function renderStatus(status: CacheStatus | undefined, theme: Theme) {
-  if (!status) return undefined;
+  if (!status) return;
   return theme.style(statusText(status), {
     fg: statusColor(status, theme.colors),
   });
