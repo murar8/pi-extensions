@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
 import { execFile } from "node:child_process";
-import { mkdtemp, readdir, readFile, rm, writeFile } from "node:fs/promises";
+import {
+  glob,
+  mkdtemp,
+  readdir,
+  readFile,
+  rm,
+  writeFile,
+} from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { suite, test } from "node:test";
@@ -32,10 +39,16 @@ async function readFiles(cwd: string) {
   );
 }
 
+// A dir removed after t.
+async function createTempDir(t: TestContext) {
+  const dir = await mkdtemp(join(tmpdir(), "pi-e2e-"));
+  t.after(() => rm(dir, { recursive: true }));
+  return dir;
+}
+
 // A project with a.txt and b.txt.
 async function createProject(t: TestContext) {
-  const cwd = await mkdtemp(join(tmpdir(), "pi-e2e-project-"));
-  t.after(() => rm(cwd, { recursive: true }));
+  const cwd = await createTempDir(t);
   await writeFile(join(cwd, "a.txt"), "a");
   await writeFile(join(cwd, "b.txt"), "b");
   return cwd;
@@ -131,9 +144,7 @@ void suite("undo", { concurrency: true }, () => {
 
   void test("diff leaves no copy of pi in the scrollback", async (t) => {
     // Outside cwd, as files there would show in the diff.
-    const logDir = await mkdtemp(join(tmpdir(), "pi-e2e-log-"));
-    t.after(() => rm(logDir, { recursive: true }));
-    const log = join(logDir, "tui.log");
+    const log = join(await createTempDir(t), "tui.log");
     const { terminal } = await openRestoreDialog(t, { PI_TUI_WRITE_LOG: log });
     await terminal.press("Enter"); // Diff.
     await terminal.getByText("diff --git a/a.txt b/a.txt").expect();
@@ -179,15 +190,34 @@ void suite("undo", { concurrency: true }, () => {
     assert.deepEqual(await readFiles(cwd), { "a.txt": "A", "c.txt": "c" });
   });
 
-  void test("a missing snapshot cancels navigation", async (t) => {
+  void test("a deleted repo cancels navigation", async (t) => {
     // Outside cwd, as overlapping it disables undo.
-    const agentDir = await mkdtemp(join(tmpdir(), "pi-e2e-agent-"));
-    t.after(() => rm(agentDir, { recursive: true }));
+    const agentDir = await createTempDir(t);
     const terminal = await startUndo(t, await createProject(t), {
       PI_CODING_AGENT_DIR: agentDir,
     });
     await changeFiles(terminal);
     await rm(join(agentDir, "undo"), { recursive: true });
+    await navigate(terminal, "edit a");
+    await terminal.getByText("snapshot failed, disabling").expect();
+    await terminal.getByText("Navigation cancelled").expect();
+  });
+
+  void test("a missing snapshot cancels navigation", async (t) => {
+    // Outside cwd, as overlapping it disables undo.
+    const agentDir = await createTempDir(t);
+    const terminal = await startUndo(t, await createProject(t), {
+      PI_CODING_AGENT_DIR: agentDir,
+    });
+    await changeFiles(terminal);
+    // Deletes the snapshots and the index, keeping the repo, so the next
+    // snapshot rehashes every file.
+    const paths = glob(["undo/*/objects/??", "undo/*/index-*"], {
+      cwd: agentDir,
+    });
+    for await (const path of paths) {
+      await rm(join(agentDir, path), { recursive: true });
+    }
     await navigate(terminal, "edit a");
     await terminal.getByText("diff failed").expect();
     await terminal.getByText("Navigation cancelled").expect();
@@ -211,8 +241,7 @@ void suite("undo", { concurrency: true }, () => {
   void test("cwd overlapping the agent dir warns and disables", async (t) => {
     // Runs in home, which contains the agent dir.
     const terminal = await startUndo(t);
-    await terminal.submit("hi");
-    await terminal.getByText("snapshot failed, disabling").expect();
+    await terminal.getByText("undo: disabled").expect();
     await terminal
       .getByText("overlaps the agent dir", { whitespace: "normalize" })
       .expect();
