@@ -18,8 +18,8 @@ function lastRequest(branch: SessionEntry[]): LastRequest | undefined {
   let level: string | undefined;
   for (const e of branch) {
     if (e.type === "compaction") last = { type: "compacted" };
-    if (e.type === "thinking_level_change") level = e.thinkingLevel;
-    if (e.type === "usage" && e.kind === "cache_warm") {
+    else if (e.type === "thinking_level_change") level = e.thinkingLevel;
+    else if (e.type === "usage" && e.kind === "cache_warm") {
       last = {
         type: "request",
         provider: e.provider,
@@ -27,8 +27,7 @@ function lastRequest(branch: SessionEntry[]): LastRequest | undefined {
         timestamp: Date.parse(e.timestamp),
         thinkingLevel: level,
       };
-    }
-    if (
+    } else if (
       e.type === "message" &&
       e.message.role === "assistant" &&
       e.message.stopReason !== "error" &&
@@ -46,17 +45,12 @@ function lastRequest(branch: SessionEntry[]): LastRequest | undefined {
   return last;
 }
 
-function formatDuration(milliseconds: number) {
-  return Temporal.Duration.from({ milliseconds })
-    .round({
-      largestUnit: "hours",
-      smallestUnit: milliseconds < 60_000 ? "seconds" : "minutes",
-      roundingMode: "floor",
-    })
-    .toLocaleString("en", {
-      style: "narrow",
-    });
-}
+export type ColdReason =
+  "compacted" | "model changed" | "thinking changed" | "expired";
+
+export type CacheStatus =
+  | { type: "warm"; left: number; ttl: number }
+  | { type: "cold"; reason: ColdReason };
 
 interface CacheStatusOptions {
   model: Model<Api> | undefined;
@@ -74,7 +68,7 @@ export function cacheStatus({
   now,
   idle,
   env,
-}: CacheStatusOptions) {
+}: CacheStatusOptions): CacheStatus | undefined {
   if (!model) {
     return undefined;
   }
@@ -83,26 +77,56 @@ export function cacheStatus({
     return undefined;
   }
   if (!idle) {
-    return "cache warm";
+    return { type: "warm", left: ttl, ttl };
   }
   const last = lastRequest(branch);
   if (!last) {
     return undefined;
   }
   if (last.type === "compacted") {
-    return "cache cold: compacted";
+    return { type: "cold", reason: "compacted" };
   }
   if (last.provider !== model.provider || last.model !== model.id) {
-    return "cache cold: model changed";
+    return { type: "cold", reason: "model changed" };
   }
   if (last.thinkingLevel !== thinkingLevel) {
-    return "cache cold: thinking changed";
+    return { type: "cold", reason: "thinking changed" };
   }
 
   const left = ttl + last.timestamp - now;
   if (left <= 0) {
-    return "cache cold: expired";
+    return { type: "cold", reason: "expired" };
   } else {
-    return `cache warm ${formatDuration(left)}`;
+    return { type: "warm", left, ttl };
+  }
+}
+
+function formatDuration(milliseconds: number) {
+  return Temporal.Duration.from({ milliseconds })
+    .round({
+      largestUnit: "hours",
+      smallestUnit: milliseconds < 60_000 ? "seconds" : "minutes",
+      roundingMode: "floor",
+    })
+    .toLocaleString("en", {
+      style: "narrow",
+    });
+}
+
+export function statusText(status: CacheStatus) {
+  switch (status.type) {
+    case "warm":
+      return `cache warm ${formatDuration(status.left)}`;
+    case "cold":
+      return `cache cold: ${status.reason}`;
+  }
+}
+
+export function heat(status: CacheStatus) {
+  switch (status.type) {
+    case "warm":
+      return status.left / status.ttl;
+    case "cold":
+      return 0;
   }
 }

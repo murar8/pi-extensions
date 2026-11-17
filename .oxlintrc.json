@@ -98,7 +98,6 @@
     "prefer-template": "error",
     "radix": "error",
     "symbol-description": "error",
-    "typescript/consistent-return": "error",
     "typescript/consistent-type-exports": "error",
     "typescript/consistent-type-imports": "error",
     "typescript/method-signature-style": "error",
