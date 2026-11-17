@@ -34,7 +34,7 @@ import { findTree, repeats, ENTRY_CUSTOM_TYPE } from "./snapshot.ts";
 // Encodes cwd into a directory name, as pi does for session dirs:
 // https://github.com/earendil-works/pi/blob/b4afdddf44e059c67ccf5097e5317d913521b470/packages/coding-agent/src/core/session-manager.ts#L593
 function encodeCwd(cwd: string) {
-  return `--${cwd.replace(/^[/\\]/, "").replace(/[/\\:]/g, "-")}--`;
+  return `--${cwd.replace(/^[/\\]/, "").replaceAll(/[/\\:]/g, "-")}--`;
 }
 
 // Whether either dir contains the other. Resolves symlinks, so a link can't
