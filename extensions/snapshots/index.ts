@@ -19,7 +19,8 @@
 // - A message restores the files right after it, dropping edits from later
 //   visits, which only their snapshot entry restores.
 
-import { spawnSync } from "node:child_process";
+import { spawn } from "node:child_process";
+import { once } from "node:events";
 import { realpath } from "node:fs/promises";
 import { join, sep } from "node:path";
 import { getAgentDir } from "@earendil-works/pi-coding-agent";
@@ -60,23 +61,40 @@ function fitTitle(text: string) {
   return truncateToWidth(text, process.stdout.columns - PADDING_COLUMNS);
 }
 
+// Pages input in less, resolving when it quits.
+async function runLess(input: string) {
+  // Overrides the user's -E and -F, which quit at once on a short diff, and
+  // -X, which leaves it in the scrollback.
+  const less = spawn("less", ["-R", "-+E", "-+F", "-+X"], {
+    stdio: ["pipe", "inherit", "inherit"],
+  });
+  less.stdin.on("error", () => {
+    // Ignores EPIPE, from quitting less before it reads all of input, the only
+    // write error a pipe gives. A failed spawn rejects once() instead.
+  });
+  less.stdin.end(input);
+  await once(less, "close");
+  if (less.exitCode !== 0) {
+    throw new Error(
+      `less exited with ${String(less.exitCode ?? less.signalCode)}`,
+    );
+  }
+}
+
 // Shows a diff in less, suspending the TUI.
 async function showDiff({ ui }: ExtensionContext, input: string) {
-  await ui.custom<null>((tui, _theme, _keybindings, done) => {
+  await ui.custom<null>(async (tui, _theme, _keybindings, done) => {
     // Hands the screen to less as is, as fullscreen mode would otherwise print
     // itself to the scrollback.
     tui.stop({ preserveScreen: true });
     // Keeps Ctrl+C a key, as a SIGINT would also reach and kill pi.
     process.stdin.setRawMode(true);
-    // Overrides the user's -E and -F, which quit at once on a short diff, and
-    // -X, which leaves it in the scrollback.
-    const { error } = spawnSync("less", ["-R", "-+E", "-+F", "-+X"], {
-      input,
-      stdio: ["pipe", "inherit", "inherit"],
-    });
-    tui.start();
-    tui.requestRender(true);
-    if (error) throw error;
+    try {
+      await runLess(input);
+    } finally {
+      tui.start();
+      tui.requestRender(true);
+    }
     done(null);
     return new Spacer(0);
   });
