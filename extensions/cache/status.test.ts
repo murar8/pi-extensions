@@ -160,6 +160,10 @@ void describe("statusText", { concurrency: true }, () => {
     assert.equal(statusText(warm(150_000)), "cache warm 2m");
   });
 
+  void test("shows hours", () => {
+    assert.equal(statusText(warm(3_660_000)), "cache warm 1h 1m");
+  });
+
   void test("shows seconds in the last minute", () => {
     assert.equal(statusText(warm(50_000)), "cache warm 50s");
   });

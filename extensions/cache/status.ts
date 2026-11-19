@@ -125,16 +125,10 @@ export function cacheStatus({
 
 // Rounds up in the last minute, so it never shows 0 while warm.
 function formatDuration(milliseconds: number) {
-  const lastMinute = milliseconds < 60_000;
-  return Temporal.Duration.from({ milliseconds })
-    .round({
-      largestUnit: "hours",
-      smallestUnit: lastMinute ? "seconds" : "minutes",
-      roundingMode: lastMinute ? "ceil" : "floor",
-    })
-    .toLocaleString("en", {
-      style: "narrow",
-    });
+  if (milliseconds < 60_000) return `${Math.ceil(milliseconds / 1000)}s`;
+  const minutes = Math.floor(milliseconds / 60_000);
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `${hours}h ${minutes % 60}m` : `${minutes}m`;
 }
 
 export function statusText(status: CacheStatus) {

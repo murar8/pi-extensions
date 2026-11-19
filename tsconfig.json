@@ -2,6 +2,7 @@
   "include": ["extensions/**/*.ts", "e2e/**/*.ts"],
   "compilerOptions": {
     "target": "ESNext",
+    "lib": ["ES2024", "ES2025.Collection", "ES2025.Iterator", "ESNext.Array"],
     "module": "Preserve",
     "moduleResolution": "Bundler",
     "strict": true,
