@@ -34,6 +34,7 @@ export default function cache(pi: ExtensionAPI) {
     if (!ctx.hasUI) return;
     const status = cacheStatus({
       model: ctx.model,
+      entries: ctx.sessionManager.getEntries(),
       branch: ctx.sessionManager.getBranch(),
       thinkingLevel: pi.getThinkingLevel(),
       now: Date.now(),

@@ -1,10 +1,18 @@
 import assert from "node:assert/strict";
 import { getPromptCacheTtlMs } from "@earendil-works/pi-ai";
-import type { Api, Model, ProviderEnv } from "@earendil-works/pi-ai";
-import type { SessionEntry } from "@earendil-works/pi-coding-agent";
+import type {
+  Api,
+  AssistantMessage,
+  Model,
+  ProviderEnv,
+} from "@earendil-works/pi-ai";
+import type {
+  SessionEntry,
+  SessionMessageEntry,
+} from "@earendil-works/pi-coding-agent";
 
 type LastRequest =
-  | { type: "compacted" }
+  | { type: "cold"; reason: "compacted" | "branched" }
   | {
       type: "request";
       provider: string;
@@ -13,33 +21,43 @@ type LastRequest =
       thinkingLevel: string | undefined;
     };
 
+function isCompletedResponse(
+  e: SessionEntry,
+): e is SessionMessageEntry & { message: AssistantMessage } {
+  return (
+    e.type === "message" &&
+    e.message.role === "assistant" &&
+    e.message.stopReason !== "error" &&
+    e.message.stopReason !== "aborted"
+  );
+}
+
 // The last request, or why the cache went cold since.
-function lastRequest(branch: SessionEntry[]) {
+function lastRequest(
+  entries: SessionEntry[],
+  branch: SessionEntry[],
+): LastRequest | undefined {
+  const newest = entries.findLast(isCompletedResponse);
+  if (newest && !branch.some((e) => e.id === newest.id)) {
+    return { type: "cold", reason: "branched" };
+  }
   let last: LastRequest | undefined;
-  let level: string | undefined;
   for (const e of branch) {
-    if (e.type === "compaction") last = { type: "compacted" };
-    else if (e.type === "thinking_level_change") level = e.thinkingLevel;
-    else if (e.type === "usage" && e.kind === "cache_warm") {
-      last = {
-        type: "request",
-        provider: e.provider,
-        model: e.model,
-        timestamp: Date.parse(e.timestamp),
-        thinkingLevel: level,
-      };
-    } else if (
-      e.type === "message" &&
-      e.message.role === "assistant" &&
-      e.message.stopReason !== "error" &&
-      e.message.stopReason !== "aborted"
+    if (e.type === "compaction") last = { type: "cold", reason: "compacted" };
+    else if (
+      e.type === "usage" &&
+      e.kind === "cache_warm" &&
+      last?.type === "request"
     ) {
+      // Re-sends the last request, but may report a different model id.
+      last.timestamp = Date.parse(e.timestamp);
+    } else if (isCompletedResponse(e)) {
       last = {
         type: "request",
         provider: e.message.provider,
         model: e.message.model,
         timestamp: e.message.timestamp,
-        thinkingLevel: level,
+        thinkingLevel: e.message.thinkingLevel,
       };
     }
   }
@@ -47,7 +65,7 @@ function lastRequest(branch: SessionEntry[]) {
 }
 
 export type ColdReason =
-  "compacted" | "model changed" | "thinking changed" | "expired";
+  "compacted" | "branched" | "model changed" | "thinking changed" | "expired";
 
 export type CacheStatus =
   | { type: "warm"; left: number; ttl: number }
@@ -55,6 +73,7 @@ export type CacheStatus =
 
 interface CacheStatusOptions {
   model: Model<Api> | undefined;
+  entries: SessionEntry[];
   branch: SessionEntry[];
   thinkingLevel: string;
   now: number;
@@ -64,6 +83,7 @@ interface CacheStatusOptions {
 
 export function cacheStatus({
   model,
+  entries,
   branch,
   thinkingLevel,
   now,
@@ -81,12 +101,12 @@ export function cacheStatus({
   if (!idle) {
     return { type: "warm", left: ttl, ttl };
   }
-  const last = lastRequest(branch);
+  const last = lastRequest(entries, branch);
   if (!last) {
     return;
   }
-  if (last.type === "compacted") {
-    return { type: "cold", reason: "compacted" };
+  if (last.type === "cold") {
+    return last;
   }
   if (last.provider !== model.provider || last.model !== model.id) {
     return { type: "cold", reason: "model changed" };
@@ -95,7 +115,7 @@ export function cacheStatus({
     return { type: "cold", reason: "thinking changed" };
   }
 
-  const left = ttl + last.timestamp - now;
+  const left = Math.min(ttl, ttl + last.timestamp - now);
   if (left <= 0) {
     return { type: "cold", reason: "expired" };
   } else {
@@ -103,12 +123,14 @@ export function cacheStatus({
   }
 }
 
+// Rounds up in the last minute, so it never shows 0 while warm.
 function formatDuration(milliseconds: number) {
+  const lastMinute = milliseconds < 60_000;
   return Temporal.Duration.from({ milliseconds })
     .round({
       largestUnit: "hours",
-      smallestUnit: milliseconds < 60_000 ? "seconds" : "minutes",
-      roundingMode: "floor",
+      smallestUnit: lastMinute ? "seconds" : "minutes",
+      roundingMode: lastMinute ? "ceil" : "floor",
     })
     .toLocaleString("en", {
       style: "narrow",
